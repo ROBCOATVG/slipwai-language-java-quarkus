@@ -1,7 +1,9 @@
 """The Java/Quarkus backend: `apps/service`, its Maven build, and this project's own package name."""
 from __future__ import annotations
 
+from ... import registry as protocol
 from ...assets import LANGUAGE_ROOT, asset_tree
+from ...probes import HEALTH_PATH
 from ...selection import Selection
 from ...services import App
 from ..backing_services import backing_service_service_files
@@ -57,3 +59,23 @@ def repository_files(
     """
     files[verify] = verify_script(services)
     return files
+
+
+# Where this backend answers "send me traffic", and what its liveness probe says. A framework that owns
+# startup owns the probe too: both Java backends already serve a *readiness* endpoint — SmallRye Health and
+# Actuator each aggregate their registered readiness checks on the path this project configures them onto,
+# which is `HEALTH_PATH`. Giving them a second, hand-written `/ready` beside a maintained one is the trade
+# this repository has refused twice already, so their readiness path is the one their framework serves.
+# The three backends whose entry point this factory writes answer on `/ready`.
+#
+# The liveness body is where the backends stop agreeing. The path is configurable, so Quarkus's SmallRye
+# Health is pointed at `HEALTH_PATH` like everything else; the shape is not, because MicroProfile Health
+# fixes it. A hand-written `/health` beside a maintained one would buy back one literal and cost a route
+# this project then owns forever, which is the wrong trade — so the literal moved instead.
+LANGUAGE = protocol.Language(backends=(protocol.Backend("java-quarkus", "java", {
+    protocol.SERVICE_FILES: service_files,
+    protocol.NAME_SERVICE: name_service,
+    protocol.REPOSITORY_FILES: repository_files,
+    protocol.READY_PATH: HEALTH_PATH,
+    protocol.HEALTH_BODY: '{"status":"UP","checks":[...]}',
+}),))
