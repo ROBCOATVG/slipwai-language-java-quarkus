@@ -87,4 +87,6 @@ LANGUAGE = protocol.Language(backends=(protocol.Backend("java-quarkus", "java", 
             f"-Dquarkus.container-image.image={IMAGE} -Dquarkus.jib.platforms=$(PLATFORM)"
         ),
     },
+    # Flyway migrates as the service starts, switched on in production only.
+    protocol.MIGRATIONS_IN_PRODUCTION: {"environment": {"QUARKUS_FLYWAY_MIGRATE_AT_START": "true"}},
 }),))
