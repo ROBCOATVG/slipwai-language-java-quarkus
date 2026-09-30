@@ -89,4 +89,7 @@ LANGUAGE = protocol.Language(backends=(protocol.Backend("java-quarkus", "java", 
     },
     # Flyway migrates as the service starts, switched on in production only.
     protocol.MIGRATIONS_IN_PRODUCTION: {"environment": {"QUARKUS_FLYWAY_MIGRATE_AT_START": "true"}},
+    # Nothing, deliberately: pgjdbc does not read `PGSSLMODE`, and that was checked, so `None` is written out.
+    # Per managed-database kind; `images.py`, above `POSTGRES_SSLMODE_KINDS`, says how each was measured.
+    protocol.POSTGRES_SSLMODE: {"rds": None, "flexible-server": None},
 }),))
