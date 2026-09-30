@@ -92,4 +92,5 @@ LANGUAGE = protocol.Language(backends=(protocol.Backend("java-quarkus", "java", 
     # Nothing, deliberately: pgjdbc does not read `PGSSLMODE`, and that was checked, so `None` is written out.
     # Per managed-database kind; `images.py`, above `POSTGRES_SSLMODE_KINDS`, says how each was measured.
     protocol.POSTGRES_SSLMODE: {"rds": None, "flexible-server": None},
+    protocol.SERVICE_DESCRIPTORS: {},
 }),))
