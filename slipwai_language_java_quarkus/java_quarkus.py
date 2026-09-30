@@ -247,5 +247,7 @@ LANGUAGE = protocol.Language(backends=(protocol.Backend("java-quarkus", "java", 
     protocol.READ_SIDE_FILES: READ_SIDE,
     protocol.ENTRY_WIRING: {},
     protocol.FLAG_RESOURCE: FLAG_ROUTE,
+    # The framework opens its own store, so the entry point has nothing to wire (`composition.wire_store`).
+    protocol.ENTRY_STORE: None,
     protocol.HEALTH_BODY: '{"status":"UP","checks":[...]}',
 }),))
