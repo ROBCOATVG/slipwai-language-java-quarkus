@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from ... import registry as protocol
 from ...assets import LANGUAGE_ROOT, asset_tree
+from ...images import IMAGE, MAVEN
 from ...probes import HEALTH_PATH
 from ...selection import Selection
 from ...services import App
@@ -78,4 +79,12 @@ LANGUAGE = protocol.Language(backends=(protocol.Backend("java-quarkus", "java", 
     protocol.REPOSITORY_FILES: repository_files,
     protocol.READY_PATH: HEALTH_PATH,
     protocol.HEALTH_BODY: '{"status":"UP","checks":[...]}',
+    protocol.IMAGE_BUILDER: {
+        "tool": "",
+        # Quarkus's own Jib extension, into the daemon; the base image is pinned in application.properties.
+        "build": (
+            f"{MAVEN} package -Dquarkus.container-image.build=true "
+            f"-Dquarkus.container-image.image={IMAGE} -Dquarkus.jib.platforms=$(PLATFORM)"
+        ),
+    },
 }),))
