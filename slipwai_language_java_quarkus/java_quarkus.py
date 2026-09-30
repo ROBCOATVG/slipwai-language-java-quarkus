@@ -10,8 +10,8 @@ from ...services import App
 from ..backing_services import backing_service_service_files
 from ..flag_route import Resource, flag_resource
 from ..flags import flag_reader
-from ..mutation import JAVA_QUARKUS_MUTATION_PLACEHOLDER
 from .java import JAVA_PORTS, rename_java_sources, verify_script
+from .java_project import JAVA_QUARKUS_MUTATION_PLACEHOLDER, QUARKUS
 from .java_toolchain import maven_dev_command, maven_native_commands
 
 
@@ -246,8 +246,8 @@ FLAG_ROUTE = {
 # is the reason to reach for `make dev` at all — it recompiles and reloads on the next request, so an edit is
 # visible without restarting anything, and it reads HOST and PORT through `application.properties`, so the
 # container and the laptop are configured the same way — and a `make mutation` that is the documented
-# placeholder (`project/mutation.py` says why).
-LANGUAGE = protocol.Language(backends=(protocol.Backend("java-quarkus", "java", {
+# placeholder (`java_project.py` says why).
+LANGUAGE = protocol.Language(backends=(protocol.Backend("java-quarkus", "java", QUARKUS | {
     protocol.SERVICE_FILES: service_files,
     protocol.NAME_SERVICE: name_service,
     protocol.REPOSITORY_FILES: repository_files,
