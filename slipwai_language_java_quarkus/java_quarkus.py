@@ -7,7 +7,7 @@ from ...probes import HEALTH_PATH
 from ...selection import Selection
 from ...services import App
 from ..backing_services import backing_service_service_files
-from ..flag_route import flag_resource
+from ..flag_route import Resource, flag_resource
 from ..flags import flag_reader
 from .java import JAVA_PORTS, rename_java_sources, verify_script
 
@@ -215,6 +215,18 @@ READ_SIDE: dict[str, dict[str, str]] = {
 }
 
 
+# The route that serves the flags to a browser app, as a file this framework discovers, keyed by the HTTP
+# option it belongs to (`flag_route.flag_resource`). No `entry_wiring`: the framework owns the entry point.
+FLAG_ROUTE = {
+    "quarkus-rest": Resource(
+        destination=(
+            "src/main/java/com/example/deliverystarter/adapters/driving/http/FeatureFlagsResource.java"
+        ),
+        source="http_flags_resource.java",
+    ),
+}
+
+
 # Where this backend answers "send me traffic", and what its liveness probe says. A framework that owns
 # startup owns the probe too: both Java backends already serve a *readiness* endpoint — SmallRye Health and
 # Actuator each aggregate their registered readiness checks on the path this project configures them onto,
@@ -233,5 +245,7 @@ LANGUAGE = protocol.Language(backends=(protocol.Backend("java-quarkus", "java", 
     protocol.READY_PATH: HEALTH_PATH,
     protocol.WRITE_SIDE_FILES: WRITE_SIDE,
     protocol.READ_SIDE_FILES: READ_SIDE,
+    protocol.ENTRY_WIRING: {},
+    protocol.FLAG_RESOURCE: FLAG_ROUTE,
     protocol.HEALTH_BODY: '{"status":"UP","checks":[...]}',
 }),))
