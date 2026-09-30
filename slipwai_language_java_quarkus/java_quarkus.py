@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from ... import registry as protocol
 from ...assets import LANGUAGE_ROOT, asset_tree
+from ...images import IMAGE, MAVEN
 from ...probes import HEALTH_PATH
 from ...selection import Selection
 from ...services import App
@@ -88,4 +89,18 @@ LANGUAGE = protocol.Language(backends=(protocol.Backend("java-quarkus", "java", 
     protocol.HEALTH_BODY: '{"status":"UP","checks":[...]}',
     protocol.DEV_COMMAND: maven_dev_command("quarkus:dev"),
     protocol.NATIVE_COMMANDS: maven_native_commands(JAVA_QUARKUS_MUTATION_PLACEHOLDER),
+    protocol.IMAGE_BUILDER: {
+        "tool": "",
+        # Quarkus's own Jib extension, into the daemon; the base image is pinned in application.properties.
+        "build": (
+            f"{MAVEN} package -Dquarkus.container-image.build=true "
+            f"-Dquarkus.container-image.image={IMAGE} -Dquarkus.jib.platforms=$(PLATFORM)"
+        ),
+    },
+    # Flyway migrates as the service starts, switched on in production only.
+    protocol.MIGRATIONS_IN_PRODUCTION: {"environment": {"QUARKUS_FLYWAY_MIGRATE_AT_START": "true"}},
+    # Nothing, deliberately: pgjdbc does not read `PGSSLMODE`, and that was checked, so `None` is written out.
+    # Per managed-database kind; `images.py`, above `POSTGRES_SSLMODE_KINDS`, says how each was measured.
+    protocol.POSTGRES_SSLMODE: {"rds": None, "flexible-server": None},
+    protocol.SERVICE_DESCRIPTORS: {},
 }),))
