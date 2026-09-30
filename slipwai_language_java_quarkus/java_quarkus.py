@@ -9,7 +9,9 @@ from ...services import App
 from ..backing_services import backing_service_service_files
 from ..flag_route import flag_resource
 from ..flags import flag_reader
+from ..mutation import JAVA_QUARKUS_MUTATION_PLACEHOLDER
 from .java import rename_java_sources, verify_script
+from .java_toolchain import maven_dev_command, maven_native_commands
 
 
 def service_files(event: bool, selection: Selection, target: str = "none") -> dict[str, str]:
@@ -72,10 +74,18 @@ def repository_files(
 # Health is pointed at `HEALTH_PATH` like everything else; the shape is not, because MicroProfile Health
 # fixes it. A hand-written `/health` beside a maintained one would buy back one literal and cost a route
 # this project then owns forever, which is the wrong trade — so the literal moved instead.
+#
+# The rest of its toolchain is Maven's and the family's (`java_toolchain.py`). Its own: Quarkus dev mode, which
+# is the reason to reach for `make dev` at all — it recompiles and reloads on the next request, so an edit is
+# visible without restarting anything, and it reads HOST and PORT through `application.properties`, so the
+# container and the laptop are configured the same way — and a `make mutation` that is the documented
+# placeholder (`project/mutation.py` says why).
 LANGUAGE = protocol.Language(backends=(protocol.Backend("java-quarkus", "java", {
     protocol.SERVICE_FILES: service_files,
     protocol.NAME_SERVICE: name_service,
     protocol.REPOSITORY_FILES: repository_files,
     protocol.READY_PATH: HEALTH_PATH,
     protocol.HEALTH_BODY: '{"status":"UP","checks":[...]}',
+    protocol.DEV_COMMAND: maven_dev_command("quarkus:dev"),
+    protocol.NATIVE_COMMANDS: maven_native_commands(JAVA_QUARKUS_MUTATION_PLACEHOLDER),
 }),))
