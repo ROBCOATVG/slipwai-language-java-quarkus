@@ -8,10 +8,10 @@ from ...probes import HEALTH_PATH
 from ...selection import Selection
 from ...services import App
 from ..backing_services import backing_service_service_files
-from ..flag_route import flag_resource
+from ..flag_route import Resource, flag_resource
 from ..flags import flag_reader
 from ..mutation import JAVA_QUARKUS_MUTATION_PLACEHOLDER
-from .java import rename_java_sources, verify_script
+from .java import JAVA_PORTS, rename_java_sources, verify_script
 from .java_toolchain import maven_dev_command, maven_native_commands
 
 
@@ -64,6 +64,172 @@ def repository_files(
     return files
 
 
+# Maven's layout, which is why every path is longer than the others': production code under
+# `src/main/java`, tests under `src/test/java`, both mirroring the package. Emitted under the
+# template package name; `language_files` renames the directories after the project and rewrites
+# every `package` and `import` line, which is why every path here says `deliverystarter`.
+WRITE_SIDE: dict[str, dict[str, str]] = {
+    "memory": {
+        f"{JAVA_PORTS}/events/Actor.java": "../java/actor.java",
+        f"{JAVA_PORTS}/events/AppendResult.java": "../java/append_result.java",
+        f"{JAVA_PORTS}/events/CausationId.java": "../java/causation_id.java",
+        f"{JAVA_PORTS}/events/CommittedEvent.java": "../java/committed_event.java",
+        f"{JAVA_PORTS}/events/CorrelationId.java": "../java/correlation_id.java",
+        f"{JAVA_PORTS}/events/DomainEvent.java": "../java/domain_event.java",
+        f"{JAVA_PORTS}/events/EventStore.java": "../java/event_store.java",
+        f"{JAVA_PORTS}/events/EventStoreException.java": "../java/event_store_exception.java",
+        f"{JAVA_PORTS}/events/EventVisitor.java": "../java/event_visitor.java",
+        "src/main/java/com/example/deliverystarter/adapters/driven/eventstorememory/"
+        "InMemoryEventStore.java": "../java/event_store_memory.java",
+        "src/test/java/com/example/deliverystarter/eventstorecontract/EventStoreContract.java": (
+            "../java/tests/event_store_contract.java"
+        ),
+        "src/test/java/com/example/deliverystarter/adapters/driven/eventstorememory/"
+        "InMemoryEventStoreTest.java": "../java/tests/event_store_memory_test.java",
+    },
+    "sqlite": {
+        "src/main/java/com/example/deliverystarter/adapters/driven/eventstoresqlite/"
+        "SqliteEventStore.java": "../java/event_store_sqlite.java",
+        "src/test/java/com/example/deliverystarter/adapters/driven/eventstoresqlite/"
+        "SqliteEventStoreTest.java": "../java/tests/event_store_sqlite_test.java",
+    },
+    "postgres": {
+        "src/main/java/com/example/deliverystarter/adapters/driven/eventstorepostgres/"
+        "PostgresEventStore.java": "../java/event_store_postgres.java",
+        "src/main/java/com/example/deliverystarter/config/DatabaseUrl.java": "../java/database_url.java",
+        "src/main/java/com/example/deliverystarter/config/DatabaseUrlConfigSource.java": (
+            "database_url_config_source.java"
+        ),
+        # ServiceLoader registration, which is how a config source is found before any bean
+        # exists. The filename is the interface's own, so it cannot be anything else.
+        "src/main/resources/META-INF/services/"
+        "org.eclipse.microprofile.config.spi.ConfigSource": "config_source_registration",
+        "src/main/java/com/example/deliverystarter/migrations/MigrateMain.java": "../java/migrate_main.java",
+        # Flyway names migrations `V<version>__<description>.sql` and orders them by that version,
+        # so the shared `.sql` files arrive under Flyway's convention rather than the numeric one
+        # the other backends' own runners read. Same schema, one copy: `../sql/` is shared with
+        # every SQL backend here, because two copies of an event-log schema drift and nothing
+        # would notice.
+        "src/main/resources/db/migration/V1__events.sql": "../sql/001_events.sql",
+        "src/main/resources/db/migration/V2__events_append_only.sql": "../sql/002_events_append_only.sql",
+        "src/test/java/com/example/deliverystarter/adapters/driven/eventstorepostgres/"
+        "PostgresEventStoreIT.java": "tests/event_store_postgres_it.java",
+        "src/test/java/com/example/deliverystarter/config/DatabaseUrlTest.java": (
+            "../java/tests/database_url_test.java"
+        ),
+    },
+    "quarkus-rest": {
+        "src/main/java/com/example/deliverystarter/adapters/driving/http/SchemaFailure.java": (
+            "../java/http_schema_failure.java"
+        ),
+        "src/main/java/com/example/deliverystarter/adapters/driving/http/NotFoundMapper.java": (
+            "http_not_found_mapper.java"
+        ),
+        # The readiness check, not the endpoint: SmallRye Health owns the route, and this is what
+        # the application contributes to it. There is deliberately no `main` here either — the
+        # framework owns startup, so there is no composition root to write.
+        "src/main/java/com/example/deliverystarter/adapters/driving/http/"
+        "ServiceHealthCheck.java": "http_health_check.java",
+        "src/test/java/com/example/deliverystarter/adapters/driving/http/HttpAppTest.java": (
+            "tests/http_app_test.java"
+        ),
+    },
+    "keycloak": {
+        "src/main/java/com/example/deliverystarter/adapters/driving/http/auth/"
+        "KeycloakRoles.java": "../java/oidc_keycloak.java",
+        "src/main/java/com/example/deliverystarter/adapters/driving/http/auth/"
+        "KeycloakGroupRoleAugmentor.java": "oidc_keycloak_augmentor.java",
+        "src/test/java/com/example/deliverystarter/adapters/driving/http/auth/"
+        "KeycloakRolesTest.java": "../java/tests/oidc_keycloak_test.java",
+    },
+    "users-keycloak": {
+        "src/main/java/com/example/deliverystarter/adapters/driving/http/users/"
+        "CustomerIdentity.java": "../java/users_oidc_keycloak.java",
+        "src/main/java/com/example/deliverystarter/adapters/driving/http/users/"
+        "CurrentCustomer.java": "users_current_customer.java",
+        "src/test/java/com/example/deliverystarter/adapters/driving/http/users/"
+        "CustomerIdentityTest.java": "../java/tests/users_oidc_keycloak_test.java",
+    },
+}
+
+# java-quarkus: the read side is the same set of files as its sibling framework's, because the
+# event store and everything derived from it are framework-agnostic by construction — the port is
+# what makes the framework's own datasource, migrations and health check a driven adapter's problem.
+READ_SIDE: dict[str, dict[str, str]] = {
+    "memory": {
+        f"{JAVA_PORTS}/events/TagsOf.java": "../java/tags_of.java",
+        f"{JAVA_PORTS}/events/TagQuery.java": "../java/tag_query.java",
+        f"{JAVA_PORTS}/events/TaggedRead.java": "../java/tagged_read.java",
+        f"{JAVA_PORTS}/events/Condition.java": "../java/condition.java",
+        f"{JAVA_PORTS}/events/ConditionalAppendResult.java": "../java/conditional_append_result.java",
+        f"{JAVA_PORTS}/readmodels/CheckpointStore.java": "../java/read_models.java",
+        f"{JAVA_PORTS}/readmodels/Projection.java": "../java/projection.java",
+        "src/main/java/com/example/deliverystarter/projections/Projections.java": "../java/projections.java",
+        "src/main/java/com/example/deliverystarter/adapters/driven/eventstorememory/"
+        "InMemoryDatabase.java": "../java/event_store_memory_database.java",
+        "src/main/java/com/example/deliverystarter/adapters/driven/checkpointstorememory/"
+        "InMemoryCheckpointStore.java": "../java/checkpoint_store_memory.java",
+        "src/test/java/com/example/deliverystarter/checkpointstorecontract/"
+        "CheckpointStoreContract.java": "../java/tests/checkpoint_store_contract.java",
+        "src/test/java/com/example/deliverystarter/adapters/driven/checkpointstorememory/"
+        "InMemoryCheckpointStoreTest.java": "../java/tests/checkpoint_store_memory_test.java",
+        # What runs an async projection: the framework's own scheduler, ticking a catch-up pass.
+        # One per framework, because `@Scheduled` is the framework's and so is how it finds the
+        # project's `Projection` beans — and a hand-written worker loop is the thing this
+        # replaces. Beside the runner rather than under `adapters/driving/`, because it ships with
+        # the read side and everything under `adapters/driving/` goes with its transport.
+        "src/main/java/com/example/deliverystarter/projections/ScheduledProjections.java": (
+            "scheduled_projections.java"
+        ),
+        # The runner has no I/O of its own, so its suite runs whatever the store is — which is why
+        # it is here under the feature every project has rather than beside an adapter.
+        "src/test/java/com/example/deliverystarter/projections/ProjectionsTest.java": (
+            "../java/tests/projections_test.java"
+        ),
+    },
+    "sqlite": {
+        "src/main/java/com/example/deliverystarter/adapters/driven/checkpointstoresqlite/"
+        "SqliteCheckpointStore.java": "../java/checkpoint_store_sqlite.java",
+        "src/test/java/com/example/deliverystarter/adapters/driven/checkpointstoresqlite/"
+        "SqliteCheckpointStoreTest.java": "../java/tests/checkpoint_store_sqlite_test.java",
+    },
+    "postgres": {
+        # The unit of work, delegated to the framework that owns transactions. The port is
+        # shared with the sibling framework; `JtaTransactions` is the one class in the project that
+        # names a transaction API, which is why there is one per framework and no `ThreadLocal`
+        # anywhere. It is here rather than in the write-side table because the seam exists for
+        # the read side: an inline view and an async checkpoint both have to commit inside
+        # somebody else's transaction, and the framework is what binds a connection to one.
+        "src/main/java/com/example/deliverystarter/adapters/driven/sql/Transactions.java": (
+            "../java/transactions.java"
+        ),
+        "src/main/java/com/example/deliverystarter/adapters/driven/sql/JtaTransactions.java": (
+            "jta_transactions.java"
+        ),
+        "src/main/java/com/example/deliverystarter/adapters/driven/checkpointstorepostgres/"
+        "PostgresCheckpointStore.java": "../java/checkpoint_store_postgres.java",
+        # Flyway orders by the version in the name, so the shared `.sql` files arrive under its
+        # convention rather than the numeric one the other backends' runners read.
+        "src/main/resources/db/migration/V3__projection_checkpoints.sql": "../sql/003_projection_checkpoints.sql",
+        "src/main/resources/db/migration/V4__event_tags.sql": "../sql/004_event_tags.sql",
+        "src/test/java/com/example/deliverystarter/adapters/driven/checkpointstorepostgres/"
+        "PostgresCheckpointStoreIT.java": "tests/checkpoint_store_postgres_it.java",
+    },
+}
+
+
+# The route that serves the flags to a browser app, as a file this framework discovers, keyed by the HTTP
+# option it belongs to (`flag_route.flag_resource`). No `entry_wiring`: the framework owns the entry point.
+FLAG_ROUTE = {
+    "quarkus-rest": Resource(
+        destination=(
+            "src/main/java/com/example/deliverystarter/adapters/driving/http/FeatureFlagsResource.java"
+        ),
+        source="http_flags_resource.java",
+    ),
+}
+
+
 # Where this backend answers "send me traffic", and what its liveness probe says. A framework that owns
 # startup owns the probe too: both Java backends already serve a *readiness* endpoint — SmallRye Health and
 # Actuator each aggregate their registered readiness checks on the path this project configures them onto,
@@ -86,6 +252,12 @@ LANGUAGE = protocol.Language(backends=(protocol.Backend("java-quarkus", "java", 
     protocol.NAME_SERVICE: name_service,
     protocol.REPOSITORY_FILES: repository_files,
     protocol.READY_PATH: HEALTH_PATH,
+    protocol.WRITE_SIDE_FILES: WRITE_SIDE,
+    protocol.READ_SIDE_FILES: READ_SIDE,
+    protocol.ENTRY_WIRING: {},
+    protocol.FLAG_RESOURCE: FLAG_ROUTE,
+    # The framework opens its own store, so the entry point has nothing to wire (`composition.wire_store`).
+    protocol.ENTRY_STORE: None,
     protocol.HEALTH_BODY: '{"status":"UP","checks":[...]}',
     protocol.DEV_COMMAND: maven_dev_command("quarkus:dev"),
     protocol.NATIVE_COMMANDS: maven_native_commands(JAVA_QUARKUS_MUTATION_PLACEHOLDER),
