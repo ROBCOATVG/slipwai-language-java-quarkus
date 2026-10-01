@@ -6,11 +6,10 @@ from ...assets import LANGUAGE_ROOT, asset_tree
 from ...images import IMAGE, MAVEN
 from ...probes import HEALTH_PATH
 from ...selection import Selection
-from ...services import App
 from ..backing_services import backing_service_service_files
 from ..flag_route import Resource, flag_resource
 from ..flags import flag_reader
-from .java import JAVA_PORTS, rename_java_sources, verify_script
+from .java import JAVA_PORTS
 from .java_project import JAVA_QUARKUS_MUTATION_PLACEHOLDER, QUARKUS
 from .java_toolchain import maven_dev_command, maven_native_commands
 
@@ -43,24 +42,6 @@ def service_files(event: bool, selection: Selection, target: str = "none") -> di
     # And the route that serves them to the browser app, which this framework discovers rather than
     # having registered. Absent without both a target and a transport. See `flag_route`.
     files.update(flag_resource(target, "java-quarkus", selection))
-    return files
-
-
-def name_service(project_name: str, service: App, files: dict[str, str]) -> dict[str, str]:
-    """One service's files under this project's own package — the family's rename, see `java.py`."""
-    return rename_java_sources(project_name, service, files)
-
-
-def repository_files(
-    project_name: str, files: dict[str, str], services: list[App], verify: str
-) -> dict[str, str]:
-    """`scripts/verify` above the services, and nothing else.
-
-    There is no aggregator pom above them: each service is a Maven project of its own, and one pom that
-    exists only to list them is a file to keep in step for nothing — `scripts/verify` and the Makefile are
-    the loop. Compare `go.work`, which Go genuinely requires.
-    """
-    files[verify] = verify_script(services)
     return files
 
 
@@ -249,8 +230,6 @@ FLAG_ROUTE = {
 # placeholder (`java_project.py` says why).
 LANGUAGE = protocol.Language(backends=(protocol.Backend("java-quarkus", "java", QUARKUS | {
     protocol.SERVICE_FILES: service_files,
-    protocol.NAME_SERVICE: name_service,
-    protocol.REPOSITORY_FILES: repository_files,
     protocol.READY_PATH: HEALTH_PATH,
     protocol.WRITE_SIDE_FILES: WRITE_SIDE,
     protocol.READ_SIDE_FILES: READ_SIDE,
