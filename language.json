@@ -1,0 +1,21 @@
+{
+  "name": "java-quarkus",
+  "core": ">=9.0,<10",
+  "order": 40,
+  "family": "java",
+  "requires": {"java": ">=1.0,<2"},
+  "backends": {
+    "java-quarkus": {
+      "framework": "quarkus",
+      "label": "Java — Quarkus owns startup (Agroal, Flyway, SmallRye Health, OIDC); Maven, Checkstyle/PMD/SpotBugs, JUnit 5",
+      "targets": ["none", "existing", "aws", "azure"],
+      "options": {
+        "event-store": ["memory", "sqlite", "postgres"],
+        "http": ["none", "quarkus-rest"],
+        "auth": ["none", "keycloak", "cognito", "entra", "auth0"],
+        "users": ["none", "keycloak", "cognito", "auth0"]
+      },
+      "defaults": {"http": "quarkus-rest"}
+    }
+  }
+}
