@@ -1,17 +1,29 @@
-"""The Java/Quarkus backend: `apps/service`, its Maven build, and this project's own package name."""
+"""The Java/Quarkus backend: `apps/service`, its Maven build, and this project's own package name.
+
+This is the `java-quarkus` language package, a framework of the `java` family: it requires `java` in
+`language.json`, imports what the family shares from `slipwai_language_java`, and reads its own `assets/` first and
+the family's after them."""
 from __future__ import annotations
 
-from ... import registry as protocol
-from ...assets import LANGUAGE_ROOT, asset_tree
-from ...images import IMAGE, MAVEN
-from ...probes import HEALTH_PATH
-from ...selection import Selection
-from ..backing_services import backing_service_service_files
-from ..flag_route import Resource, flag_resource
-from ..flags import flag_reader
-from .java import JAVA_PORTS
-from .java_project import JAVA_QUARKUS_MUTATION_PLACEHOLDER, QUARKUS
-from .java_toolchain import maven_dev_command, maven_native_commands
+from pathlib import Path
+
+from slipwai_language_java.java import ASSETS as JAVA_ASSETS
+from slipwai_language_java.java import JAVA_PORTS
+from slipwai_language_java.java_toolchain import maven_dev_command, maven_native_commands
+
+from slipwai import registry as protocol
+from slipwai.assets import asset_tree
+from slipwai.images import IMAGE, MAVEN
+from slipwai.probes import HEALTH_PATH
+from slipwai.project.backing_services import backing_service_service_files
+from slipwai.project.flag_route import Resource, flag_resource
+from slipwai.project.flags import flag_reader
+from slipwai.selection import Selection
+
+from .quarkus_project import JAVA_QUARKUS_MUTATION_PLACEHOLDER, QUARKUS
+
+# This package's own assets; the family's are `JAVA_ASSETS`, and core's readers look here first and there after.
+ASSETS = Path(__file__).resolve().parents[1] / "assets"
 
 
 def service_files(event: bool, selection: Selection, target: str = "none") -> dict[str, str]:
@@ -33,8 +45,8 @@ def service_files(event: bool, selection: Selection, target: str = "none") -> di
     `java-quarkus/app/` is this backend's: the pom, the properties and the walking skeleton, all of which
     name the framework.
     """
-    files = asset_tree(LANGUAGE_ROOT / "java/build")
-    files.update(asset_tree(LANGUAGE_ROOT / "java-quarkus/app"))
+    files = asset_tree(JAVA_ASSETS / "languages/java/build")
+    files.update(asset_tree(ASSETS / "languages/java-quarkus/app"))
     files.update(backing_service_service_files(selection, "java-quarkus"))
     # The flag reader, from the family's tree for the reason every `../java/` source is: it names no
     # framework type. Only where there is somewhere to deploy — see `flags.py`.
@@ -223,11 +235,11 @@ FLAG_ROUTE = {
 # fixes it. A hand-written `/health` beside a maintained one would buy back one literal and cost a route
 # this project then owns forever, which is the wrong trade — so the literal moved instead.
 #
-# The rest of its toolchain is Maven's and the family's (`java_toolchain.py`). Its own: Quarkus dev mode, which
+# The rest of its toolchain is Maven's and the family's (`java`'s `java_toolchain`). Its own: Quarkus dev mode, which
 # is the reason to reach for `make dev` at all — it recompiles and reloads on the next request, so an edit is
 # visible without restarting anything, and it reads HOST and PORT through `application.properties`, so the
 # container and the laptop are configured the same way — and a `make mutation` that is the documented
-# placeholder (`java_project.py` says why).
+# placeholder (`quarkus_project.py` says why).
 LANGUAGE = protocol.Language(backends=(protocol.Backend("java-quarkus", "java", QUARKUS | {
     protocol.SERVICE_FILES: service_files,
     protocol.READY_PATH: HEALTH_PATH,
