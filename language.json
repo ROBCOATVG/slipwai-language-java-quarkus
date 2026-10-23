@@ -4,7 +4,7 @@
   "order": 40,
   "family": "java",
   "requires": {
-    "java": ">=1.1,<2"
+    "java": ">=1.2,<2"
   },
   "backends": {
     "java-quarkus": {

@@ -47,3 +47,18 @@ class StateRungTest(FactoryTestCase):
             main = self.main_package(directory, "events", "postgres")
             self.assertTrue((main / "application/ports/events/EventStore.java").is_file())
             self.assertFalse((main / "application/ports/state").exists())
+
+    def test_the_durable_event_store_brings_the_seed_door_and_nothing_else_does(self) -> None:
+        """A slice's `try-it.json` may give the events its unbuilt upstream would have written; they go in through
+        the event store, by a process with the store's credentials, never a route."""
+        with tempfile.TemporaryDirectory() as directory:
+            main = self.main_package(directory, "events", "postgres")
+            repo = main.parents[7]
+            self.assertTrue((main / "seed/SeedMain.java").is_file())
+            self.assertIn("exec:java@seed -Dexec.args=$(abspath $(FILE))", (repo / "Makefile").read_text())
+            self.assertIn("seed.SeedMain</mainClass>", (repo / "apps/service/pom.xml").read_text())
+        for rung, persistence in (("events", "memory"), ("state", "postgres")):
+            with self.subTest(rung=rung, persistence=persistence), tempfile.TemporaryDirectory() as directory:
+                main = self.main_package(directory, rung, persistence)
+                self.assertFalse((main / "seed").exists())
+                self.assertNotIn("seed-service:", (main.parents[7] / "Makefile").read_text())

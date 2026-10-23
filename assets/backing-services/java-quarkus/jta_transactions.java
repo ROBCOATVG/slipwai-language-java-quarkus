@@ -1,11 +1,15 @@
 package com.example.deliverystarter.adapters.driven.sql;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.narayana.jta.QuarkusTransactionException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.Optional;
 import java.util.function.Supplier;
 import javax.sql.DataSource;
 
@@ -33,6 +37,9 @@ public class JtaTransactions implements Transactions {
     /** The savepoint every nested block marks. One name is enough — see {@link #inSavepoint}. */
     private static final String SAVEPOINT = "unit_of_work";
 
+    /** How far into a commit failure's causes the driver's exception is looked for; it sits four deep. */
+    private static final int MAX_FAILURE_DEPTH = 16;
+
     private final DataSource dataSource;
 
     @Inject
@@ -47,12 +54,46 @@ public class JtaTransactions implements Transactions {
             // transactions, so the undo boundary is a JDBC savepoint on the enlisted connection.
             return inSavepoint(work);
         }
-        return QuarkusTransaction.requiringNew().call(() -> {
-            if (isolation == Isolation.SERIALIZABLE) {
-                askForSerialisable();
+        try {
+            return QuarkusTransaction.requiringNew().call(() -> {
+                if (isolation == Isolation.SERIALIZABLE) {
+                    askForSerialisable();
+                }
+                return work.get();
+            });
+        } catch (QuarkusTransactionException failure) {
+            // A failure at COMMIT surfaces as Narayana's rollback rather than as the port's: a SERIALIZABLE
+            // transaction Postgres could not order is refused by the commit, after the work returned. The store
+            // reads the SQLSTATE off the port's exception to call that a condition conflict, so the driver's own
+            // exception — which Narayana keeps as the cause of a suppressed `XAException` — is handed back in
+            // the port's shape here.
+            Optional<SQLException> driver = driverFailure(failure);
+            if (driver.isPresent()) {
+                throw Transactions.failed("commit", driver.get());
             }
-            return work.get();
-        });
+            throw failure;
+        }
+    }
+
+    /** The first SQLException among a failure's causes and suppressed exceptions, breadth first. */
+    private static Optional<SQLException> driverFailure(Throwable failure) {
+        Deque<Throwable> pending = new ArrayDeque<>();
+        pending.add(failure);
+        for (int seen = 0; !pending.isEmpty() && seen < MAX_FAILURE_DEPTH; seen++) {
+            Throwable next = pending.remove();
+            if (next instanceof SQLException sql) {
+                return Optional.of(sql);
+            }
+            // The depth cap is what stops a circular chain — Narayana's report includes one — not a check here.
+            Throwable cause = next.getCause();
+            if (cause != null) {
+                pending.add(cause);
+            }
+            for (Throwable suppressed : next.getSuppressed()) {
+                pending.add(suppressed);
+            }
+        }
+        return Optional.empty();
     }
 
     @Override

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from slipwai_language_java.java import ASSETS as JAVA_ASSETS
-from slipwai_language_java.java import JAVA_PORTS
+from slipwai_language_java.java import JAVA_PORTS, SEED_DOOR
 from slipwai_language_java.java_state import state_write_side
 from slipwai_language_java.java_toolchain import maven_dev_command, maven_native_commands
 
@@ -146,6 +146,10 @@ WRITE_SIDE: dict[str, dict[str, Any]] = {
         "CustomerIdentityTest.java": "../java/tests/users_oidc_keycloak_test.java",
     },
 }
+
+# The seed door beside the event store it appends through (`slipwai_language_java.java.SEED_DOOR`). The event rung
+# only: a state-stored service keeps no log for a given event to land in, and the keel writes it no target.
+WRITE_SIDE["postgres"].update(SEED_DOOR)
 
 # The state-stored rung: the family's repository port and adapters, this framework's datasource wiring taken from
 # the `postgres` row above, its own `*IT` for the Postgres repository, and the transport and identity rows as they

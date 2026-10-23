@@ -421,6 +421,18 @@
           <mainClass>com.example.deliverystarter.migrations.MigrateMain</mainClass>
           <classpathScope>runtime</classpathScope>
         </configuration>
+        <executions>
+          <!--
+            `make seed-<service> FILE=<json>`: the seed door, `exec:java@seed`. The same plugin with the other
+            main class, so the datasource it reaches is the one `make migrate` migrated.
+          -->
+          <execution>
+            <id>seed</id>
+            <configuration>
+              <mainClass>com.example.deliverystarter.seed.SeedMain</mainClass>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <!-- backing-service:postgres:end -->
     </plugins>
