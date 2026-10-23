@@ -3,6 +3,29 @@
 No releases yet. Release notes are recorded here newest first, one entry per released version; the entry being
 written is `changelog.d/`.
 
+## 1.2.0 — MINOR
+
+**A conditional append Postgres refuses at commit is answered as a condition conflict on Quarkus, not thrown.**
+A SERIALIZABLE transaction Postgres could not order is refused by the commit, after the work returned, and
+Narayana reported it as a `QuarkusTransactionException`, so `appendIf` threw instead of answering
+`conditionConflict` and the simultaneous-appends integration test failed intermittently. `JtaTransactions` now
+finds the driver's exception among the failure's causes and hands it back in the port's shape, which the store
+already reads the SQLSTATE from.
+
+**Catch-up:** `slipwai language upgrade java-quarkus`, then `slipwai migrate`; the service's `JtaTransactions`
+changes.
+
+**`java-quarkus` services on the durable event store get the family's seed door.** The event rung's `postgres` row
+takes `SEED_DOOR` from `java` and the pom's exec plugin gains a `seed` execution naming `SeedMain`, so `make
+seed-<service> FILE=<json>` appends a slice's given events through the event-store port, at the stream's current
+version, as the system actor `systems/seed-door` under one correlation id per run, with an identity hashed from
+stream, type and canonical data so a re-run appends nothing. With no `DATABASE_URL` it says so and exits 2. Never
+an HTTP route: the door is a process with the store's credentials. `language.json` now requires `java` >=1.2,
+which carries the door.
+
+**Catch-up:** `slipwai language upgrade java-quarkus` beside `slipwai language upgrade java`, then `slipwai
+migrate`.
+
 ## 1.1.0 — MINOR
 
 **`java-quarkus` answers the state-stored rung: `--write-model state` generates a service on a versioned
