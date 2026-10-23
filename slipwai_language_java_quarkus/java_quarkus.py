@@ -6,9 +6,11 @@ the family's after them."""
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from slipwai_language_java.java import ASSETS as JAVA_ASSETS
 from slipwai_language_java.java import JAVA_PORTS
+from slipwai_language_java.java_state import state_write_side
 from slipwai_language_java.java_toolchain import maven_dev_command, maven_native_commands
 
 from slipwai import registry as protocol
@@ -61,7 +63,7 @@ def service_files(event: bool, selection: Selection, target: str = "none") -> di
 # `src/main/java`, tests under `src/test/java`, both mirroring the package. Emitted under the
 # template package name; `language_files` renames the directories after the project and rewrites
 # every `package` and `import` line, which is why every path here says `deliverystarter`.
-WRITE_SIDE: dict[str, dict[str, str]] = {
+WRITE_SIDE: dict[str, dict[str, Any]] = {
     "memory": {
         f"{JAVA_PORTS}/events/Actor.java": "../java/actor.java",
         f"{JAVA_PORTS}/events/AppendResult.java": "../java/append_result.java",
@@ -144,6 +146,14 @@ WRITE_SIDE: dict[str, dict[str, str]] = {
         "CustomerIdentityTest.java": "../java/tests/users_oidc_keycloak_test.java",
     },
 }
+
+# The state-stored rung: the family's repository port and adapters, this framework's datasource wiring taken from
+# the `postgres` row above, its own `*IT` for the Postgres repository, and the transport and identity rows as they
+# are. Nested under `state` because the rung is not a feature: a service answered `write-model: state` reads this
+# block instead of the rows above (`slipwai.rungs`), and nothing on the read side — no projection, no checkpoint.
+WRITE_SIDE["state"] = state_write_side(
+    WRITE_SIDE, "tests/repository_postgres_it.java", ("quarkus-rest", "keycloak", "users-keycloak")
+)
 
 # java-quarkus: the read side is the same set of files as its sibling framework's, because the
 # event store and everything derived from it are framework-agnostic by construction — the port is

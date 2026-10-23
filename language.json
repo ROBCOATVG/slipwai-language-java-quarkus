@@ -4,7 +4,7 @@
   "order": 40,
   "family": "java",
   "requires": {
-    "java": ">=1.0,<2"
+    "java": ">=1.1,<2"
   },
   "backends": {
     "java-quarkus": {
@@ -17,11 +17,6 @@
         "azure"
       ],
       "options": {
-        "event-store": [
-          "memory",
-          "sqlite",
-          "postgres"
-        ],
         "http": [
           "none",
           "quarkus-rest"
@@ -38,6 +33,15 @@
           "keycloak",
           "cognito",
           "auth0"
+        ],
+        "persistence": [
+          "memory",
+          "sqlite",
+          "postgres"
+        ],
+        "write-model": [
+          "events",
+          "state"
         ]
       },
       "defaults": {
